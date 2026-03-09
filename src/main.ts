@@ -7,8 +7,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
   app.use(cookieParser())
+  const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000'
+  const origins = corsOrigin.split(',').map((o) => o.trim()).filter(Boolean)
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: origins.length > 0 ? origins : ['http://localhost:3000'],
     credentials: true,
   })
   app.setGlobalPrefix('api', { exclude: ['health'] })

@@ -17,18 +17,41 @@ cp .env.example .env
 
 ## Docker (VPS / Proxmox)
 
-Run API + MongoDB + Redis with Docker Compose:
+### First-time setup on the VPS
+
+From your home (or project) directory on the server:
 
 ```bash
-cp .env.example .env
-# Edit .env: JWT_SECRET, CORS_ORIGIN (your frontend URL), R2/Midtrans/Biteship/RajaOngkir keys, etc.
+# Clone the repo into superfreak-backend
+git clone https://github.com/RichardTandean/superfreak-backend.git
+cd superfreak-backend
 
+# Create .env from example and edit (required: JWT_SECRET, CORS_ORIGIN; optional: R2, Midtrans, Biteship, etc.)
+cp .env.example .env
+nano .env   # or vim / vi
+
+# Deploy (build + start API, MongoDB, Redis)
+chmod +x deploy.sh
+./deploy.sh
+```
+
+Or without the script:
+
+```bash
 docker compose up -d --build
 ```
 
 - API: `http://<vps-ip>:4000` (or `PORT` from `.env`)
 - Health: `GET http://<vps-ip>:4000/health`
 - Compose overrides `DATABASE_URL` and `REDIS_URL` to use the `mongodb` and `redis` services.
+
+### Update and redeploy
+
+```bash
+cd ~/superfreak-backend   # or wherever you cloned
+git pull
+./deploy.sh
+```
 
 **Optional:** If SuperSlice runs on the same host (e.g. another container), set `SUPERSLICE_API_URL=http://<container-name>:8000` in `.env` or in the `api` service `environment` in `docker-compose.yml`.
 
