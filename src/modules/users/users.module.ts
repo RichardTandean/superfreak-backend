@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { MulterModule } from '@nestjs/platform-express'
-import multer from 'multer'
+import * as multer from 'multer'
 import { User, UserSchema } from '../auth/schemas/user.schema'
 import { UsersService } from './users.service'
 import { UsersController } from './users.controller'

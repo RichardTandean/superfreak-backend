@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { MulterModule } from '@nestjs/platform-express'
-import multer from 'multer'
+import * as multer from 'multer'
 import { TempFile, TempFileSchema } from './schemas/temp-file.schema'
 import { UserFile, UserFileSchema } from './schemas/user-file.schema'
 import { Order, OrderSchema } from '../orders/schemas/order.schema'

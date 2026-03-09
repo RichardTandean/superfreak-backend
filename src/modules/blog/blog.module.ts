@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { MulterModule } from '@nestjs/platform-express'
-import multer from 'multer'
+import * as multer from 'multer'
 import { BlogPost, BlogPostSchema } from './schemas/blog-post.schema'
 import { BlogService } from './blog.service'
 import { BlogController } from './blog.controller'
