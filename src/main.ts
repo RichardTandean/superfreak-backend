@@ -12,6 +12,10 @@ async function bootstrap() {
   app.enableCors({
     origin: origins.length > 0 ? origins : ['http://localhost:3000'],
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
   app.setGlobalPrefix('api', { exclude: ['health'] })
   app.useGlobalPipes(
