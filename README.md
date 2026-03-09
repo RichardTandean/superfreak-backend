@@ -15,6 +15,23 @@ cp .env.example .env
 - **Dev:** `npm run dev` — http://localhost:4000
 - **Prod:** `npm run build && npm run start:prod`
 
+## Docker (VPS / Proxmox)
+
+Run API + MongoDB + Redis with Docker Compose:
+
+```bash
+cp .env.example .env
+# Edit .env: JWT_SECRET, CORS_ORIGIN (your frontend URL), R2/Midtrans/Biteship/RajaOngkir keys, etc.
+
+docker compose up -d --build
+```
+
+- API: `http://<vps-ip>:4000` (or `PORT` from `.env`)
+- Health: `GET http://<vps-ip>:4000/health`
+- Compose overrides `DATABASE_URL` and `REDIS_URL` to use the `mongodb` and `redis` services.
+
+**Optional:** If SuperSlice runs on the same host (e.g. another container), set `SUPERSLICE_API_URL=http://<container-name>:8000` in `.env` or in the `api` service `environment` in `docker-compose.yml`.
+
 ## Endpoints (B1)
 
 - `GET /health` — Health check (MongoDB + Redis). Returns 200 when both up, 503 when both down.
