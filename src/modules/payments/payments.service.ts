@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import * as Midtrans from 'midtrans-client'
+import type { Snap, CoreApi } from 'midtrans-client'
 import { Order, OrderDocument } from '../orders/schemas/order.schema'
 import { User, UserDocument } from '../auth/schemas/user.schema'
 
