@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common'
-import { Response } from 'express'
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common'
+import { Request, Response } from 'express'
+import { AuthGuard } from '@nestjs/passport'
 import { AuthService, AuthResult } from './auth.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
@@ -34,6 +35,26 @@ function clearAuthCookie(res: Response) {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth() {
+    // Guard redirects to Google; no body
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthCallback(@Req() req: Request & { user: UserDocument }, @Res() res: Response) {
+    const user = req.user
+    if (!user) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+      return res.redirect(`${frontendUrl}?error=auth_failed`)
+    }
+    const result = this.auth.buildAuthResult(user)
+    setAuthCookie(res, result.accessToken)
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    return res.redirect(frontendUrl)
+  }
 
   @Post('register')
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response): Promise<AuthResult> {

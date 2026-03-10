@@ -49,7 +49,7 @@ export class AuthService {
       .findOne({ email: dto.email.toLowerCase() })
       .select('+password')
       .exec()
-    if (!user) {
+    if (!user || !user.password) {
       throw new UnauthorizedException('Invalid email or password')
     }
 
@@ -61,11 +61,41 @@ export class AuthService {
     return this.buildAuthResult(user)
   }
 
+  /** Find or create user from Google profile; used by Google OAuth strategy. */
+  async findOrCreateGoogleUser(profile: {
+    id: string
+    emails?: Array<{ value: string; verified?: boolean }>
+    displayName?: string
+    photos?: Array<{ value: string }>
+  }): Promise<UserDocument> {
+    const email = profile.emails?.[0]?.value?.toLowerCase().trim()
+    if (!email) {
+      throw new UnauthorizedException('Google account has no email')
+    }
+
+    let user = await this.userModel.findOne({ email }).exec()
+    if (user) {
+      if (!user.image && profile.photos?.[0]?.value) {
+        user.image = profile.photos[0].value
+        await user.save()
+      }
+      return user
+    }
+
+    user = await this.userModel.create({
+      email,
+      name: profile.displayName?.trim() || email.split('@')[0] || 'User',
+      role: 'user',
+      image: profile.photos?.[0]?.value,
+    })
+    return user
+  }
+
   async validateUserById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec()
   }
 
-  private buildAuthResult(user: UserDocument): AuthResult {
+  buildAuthResult(user: UserDocument): AuthResult {
     const payload: JwtPayload = { sub: user._id.toString(), email: user.email }
     const accessToken = this.jwtService.sign(payload, { expiresIn: this.jwtExpiresIn })
     return {
