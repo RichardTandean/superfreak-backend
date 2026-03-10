@@ -22,7 +22,13 @@ function setAuthCookie(res: Response, token: string) {
 }
 
 function clearAuthCookie(res: Response) {
-  res.clearCookie(COOKIE_NAME, { path: '/', httpOnly: true })
+  const isProd = process.env.NODE_ENV === 'production'
+  res.clearCookie(COOKIE_NAME, {
+    path: '/',
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax',
+  })
 }
 
 @Controller('auth')
