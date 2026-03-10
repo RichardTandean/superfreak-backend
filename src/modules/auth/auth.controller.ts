@@ -13,12 +13,14 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days in seconds
 
 function setAuthCookie(res: Response, token: string) {
   const isProd = process.env.NODE_ENV === 'production'
+  const domain = process.env.AUTH_COOKIE_DOMAIN
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'strict' : 'lax',
     maxAge: COOKIE_MAX_AGE * 1000,
     path: '/',
+    ...(domain ? { domain } : {}),
   })
 }
 
@@ -29,6 +31,7 @@ function clearAuthCookie(res: Response) {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'strict' : 'lax',
+    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
   })
 }
 
