@@ -42,7 +42,7 @@ export class AuthController {
     // Guard redirects to Google; no body
   }
 
-  @Get('google/callback')
+  @Get('callback/google')
   @UseGuards(AuthGuard('google'))
   async googleAuthCallback(@Req() req: Request & { user: UserDocument }, @Res() res: Response) {
     const user = req.user
