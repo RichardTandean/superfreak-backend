@@ -17,8 +17,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private readonly config: ConfigService,
     private readonly authService: AuthService,
   ) {
-    const clientID = config.get<string>('GOOGLE_CLIENT_ID', '')
-    const clientSecret = config.get<string>('GOOGLE_CLIENT_SECRET', '')
+    // Passport's Google OAuth strategy throws during app bootstrap if clientID is empty.
+    // In some deployments, Google OAuth may be intentionally unset; we keep the backend
+    // running by providing non-empty placeholders (routes will still fail to authenticate
+    // properly until real values are configured).
+    const clientID = config.get<string>('GOOGLE_CLIENT_ID') || 'MISSING_GOOGLE_CLIENT_ID'
+    const clientSecret = config.get<string>('GOOGLE_CLIENT_SECRET') || 'MISSING_GOOGLE_CLIENT_SECRET'
     const callbackBase = config.get<string>('PUBLIC_API_URL', 'http://localhost:4000')
     super({
       clientID,
