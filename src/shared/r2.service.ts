@@ -67,4 +67,11 @@ export class R2Service {
     if (!this.bucket) throw new Error('R2_BUCKET_NAME is not configured')
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }))
   }
+
+  /** If the URL is our R2 public URL, return the object key; otherwise null. */
+  getKeyFromPublicUrl(fullUrl: string): string | null {
+    if (!fullUrl || !this.publicUrl) return null
+    const prefix = this.publicUrl.endsWith('/') ? this.publicUrl : `${this.publicUrl}/`
+    return fullUrl.startsWith(prefix) ? fullUrl.slice(prefix.length) : null
+  }
 }

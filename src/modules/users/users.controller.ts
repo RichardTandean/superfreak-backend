@@ -5,10 +5,12 @@ import {
   Patch,
   Post,
   Body,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common'
+import { Response } from 'express'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { UsersService } from './users.service'
 import { UpdateMeDto } from './dto/update-me.dto'
@@ -33,6 +35,17 @@ export class UsersController {
     const result = await this.users.updateMe(user._id.toString(), dto)
     if (!result) throw new BadRequestException('User not found')
     return result
+  }
+
+  @Get('me/profile-image')
+  async getProfileImage(@CurrentUser() user: UserDocument, @Res() res: Response) {
+    const result = await this.users.getProfileImageBuffer(user._id.toString())
+    if (!result) {
+      return res.status(404).end()
+    }
+    res.setHeader('Content-Type', result.contentType)
+    res.setHeader('Cache-Control', 'private, max-age=300')
+    return res.send(result.buffer)
   }
 
   @Post('profile-image')

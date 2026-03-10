@@ -62,4 +62,30 @@ export class UsersService {
 
     return { url }
   }
+
+  /**
+   * Get the profile image buffer for streaming (proxy). Returns null if user has no image
+   * or image URL is not from our R2 bucket.
+   */
+  async getProfileImageBuffer(userId: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const user = await this.userModel.findById(userId).exec()
+    if (!user?.image) return null
+    const key = this.r2.getKeyFromPublicUrl(user.image)
+    if (!key) return null
+    try {
+      const buffer = await this.r2.getBuffer(key)
+      const ext = key.split('.').pop()?.toLowerCase()
+      const contentType =
+        ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+            ? 'image/webp'
+            : ext === 'gif'
+              ? 'image/gif'
+              : 'image/jpeg'
+      return { buffer, contentType }
+    } catch {
+      return null
+    }
+  }
 }
