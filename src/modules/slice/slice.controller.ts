@@ -50,8 +50,11 @@ export class SliceController {
     file: Express.Multer.File,
     body: Record<string, any>,
   ): Promise<{ getHeaders: () => Record<string, string> }> {
-    const FormData = (await import('form-data')).default
-    const form = new FormData()
+    const mod = await import('form-data')
+    // `form-data` can be exported differently depending on bundler/runtime.
+    // Handle both `default` export and direct module export to ensure we get a constructor.
+    const FormDataCtor = (mod as any).default ?? (mod as any)
+    const form = new FormDataCtor()
     const buffer = file.buffer ?? (file as any).buffer
     form.append('file', Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer), {
       filename: file.originalname || 'model.stl',
