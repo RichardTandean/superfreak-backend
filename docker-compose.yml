@@ -1,6 +1,9 @@
 # superfreak-backend – run API + MongoDB + Redis on your VPS (Proxmox)
 # Usage: copy .env.example to .env, fill in secrets, then:
 #   docker compose up -d
+#
+# API uses the Mongo from the payload stack (superfreak_app-network, service "mongo")
+# so staging and mongo-express see the same data. Requires payload stack to be up first.
 
 services:
   api:
@@ -16,11 +19,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      # Override so API talks to containers (not localhost)
-      DATABASE_URL: mongodb://mongodb:27017/superfreak
+      # Use Mongo from payload stack (same DB as mongo-express)
+      DATABASE_URL: mongodb://mongo:27017/superfreak
       REDIS_URL: redis://redis:6379
     depends_on:
-      mongodb: { condition: service_healthy }
       redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -28,6 +30,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    networks:
+      - default
+      - app-network
 
   mongodb:
     image: mongo:7
@@ -64,3 +69,8 @@ services:
 volumes:
   mongodb_data:
   redis_data:
+
+networks:
+  app-network:
+    external: true
+    name: superfreak_app-network
