@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
@@ -7,6 +12,7 @@ import { User, UserDocument } from './schemas/user.schema'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
+import { SetPasswordDto } from './dto/set-password.dto'
 
 export interface JwtPayload {
   sub: string
@@ -112,6 +118,32 @@ export class AuthService {
 
   async validateUserById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec()
+  }
+
+  async userHasPassword(userId: string): Promise<boolean> {
+    const doc = await this.userModel
+      .findById(userId)
+      .select('password')
+      .lean()
+      .exec()
+    return !!(doc as { password?: string } | null)?.password
+  }
+
+  async setPassword(userId: string, dto: SetPasswordDto): Promise<{ message: string }> {
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('New password and confirmation do not match')
+    }
+    const user = await this.userModel.findById(userId).select('+password').exec()
+    if (!user) {
+      throw new UnauthorizedException('User not found')
+    }
+    if (user.password) {
+      throw new BadRequestException('You already have a password. Use change-password.')
+    }
+    const hashed = await bcrypt.hash(dto.newPassword, 12)
+    user.password = hashed
+    await user.save()
+    return { message: 'Password set successfully' }
   }
 
   buildAuthResult(user: UserDocument): AuthResult {

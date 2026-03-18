@@ -5,6 +5,7 @@ import { AuthService, AuthResult } from './auth.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
+import { SetPasswordDto } from './dto/set-password.dto'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { UserDocument } from './schemas/user.schema'
@@ -83,9 +84,16 @@ export class AuthController {
     return this.auth.changePassword(user._id.toString(), dto)
   }
 
+  @Post('set-password')
+  @UseGuards(JwtAuthGuard)
+  async setPassword(@CurrentUser() user: UserDocument, @Body() dto: SetPasswordDto) {
+    return this.auth.setPassword(user._id.toString(), dto)
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: UserDocument) {
+    const hasPassword = await this.auth.userHasPassword(user._id.toString())
     return {
       id: user._id.toString(),
       email: user.email,
@@ -93,6 +101,7 @@ export class AuthController {
       role: user.role,
       image: user.image,
       phoneNumber: user.phoneNumber,
+      hasPassword,
     }
   }
 }
