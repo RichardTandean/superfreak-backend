@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional, MinLength, Length } from 'class-validator'
+import { IsString, IsBoolean, IsOptional, MinLength, Length, IsNumber, IsDateString } from 'class-validator'
 
 export class UpdateAddressDto {
   @IsOptional()
@@ -48,4 +48,37 @@ export class UpdateAddressDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean
+
+  // Optional RajaOngkir metadata (legacy/supporting fields already present in schema)
+  @IsOptional()
+  @IsNumber()
+  rajaOngkirDestinationId?: number
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirLocationLabel?: string
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirZipCode?: string
+
+  @IsOptional()
+  @IsDateString()
+  rajaOngkirLastVerified?: string
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirProvinceName?: string
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirCityName?: string
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirDistrictName?: string
+
+  @IsOptional()
+  @IsString()
+  rajaOngkirSubdistrictName?: string
 }

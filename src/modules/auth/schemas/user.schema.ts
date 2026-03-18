@@ -20,6 +20,9 @@ export class User {
   @Prop()
   image?: string
 
+  @Prop()
+  phoneNumber?: string
+
   @Prop({ default: Date.now })
   createdAt: Date
 

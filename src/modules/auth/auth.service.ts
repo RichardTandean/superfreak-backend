@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt'
 import { User, UserDocument } from './schemas/user.schema'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 
 export interface JwtPayload {
   sub: string
@@ -13,7 +14,7 @@ export interface JwtPayload {
 }
 
 export interface AuthResult {
-  user: { id: string; email: string; name: string; role: string; image?: string }
+  user: { id: string; email: string; name: string; role: string; image?: string; phoneNumber?: string }
   accessToken: string
   expiresIn: number
 }
@@ -61,6 +62,24 @@ export class AuthService {
     return this.buildAuthResult(user)
   }
 
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId).select('+password').exec()
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid session')
+    }
+
+    const match = await bcrypt.compare(dto.currentPassword, user.password)
+    if (!match) {
+      throw new UnauthorizedException('Current password is incorrect')
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 12)
+    user.password = hashed
+    await user.save()
+
+    return { message: 'Password changed successfully' }
+  }
+
   /** Find or create user from Google profile; used by Google OAuth strategy. */
   async findOrCreateGoogleUser(profile: {
     id: string
@@ -105,6 +124,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         image: user.image,
+        phoneNumber: user.phoneNumber,
       },
       accessToken,
       expiresIn: this.jwtExpiresIn,

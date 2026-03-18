@@ -24,12 +24,20 @@ export class UsersService {
       name: user.name,
       role: user.role,
       image: user.image,
+      phoneNumber: user.phoneNumber,
     }
   }
 
   async updateMe(userId: string, dto: UpdateMeDto) {
     const user = await this.userModel
-      .findByIdAndUpdate(userId, { name: dto.name }, { new: true })
+      .findByIdAndUpdate(
+        userId,
+        {
+          name: dto.name,
+          ...(dto.phoneNumber !== undefined ? { phoneNumber: dto.phoneNumber } : {}),
+        },
+        { new: true },
+      )
       .exec()
     if (!user) return null
     return {
@@ -38,6 +46,7 @@ export class UsersService {
       name: user.name,
       role: user.role,
       image: user.image,
+      phoneNumber: user.phoneNumber,
     }
   }
 

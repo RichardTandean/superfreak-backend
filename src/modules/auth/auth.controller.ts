@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { AuthService, AuthResult } from './auth.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
+import { ChangePasswordDto } from './dto/change-password.dto'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { UserDocument } from './schemas/user.schema'
@@ -76,6 +77,12 @@ export class AuthController {
     return { message: 'Logged out' }
   }
 
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@CurrentUser() user: UserDocument, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(user._id.toString(), dto)
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: UserDocument) {
@@ -85,6 +92,7 @@ export class AuthController {
       name: user.name,
       role: user.role,
       image: user.image,
+      phoneNumber: user.phoneNumber,
     }
   }
 }
