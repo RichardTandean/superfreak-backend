@@ -22,14 +22,15 @@ export class SliceService {
     contentType: string | null
   }> {
     const headers = formData.getHeaders()
-    const response = await fetch(`${this.baseUrl}/slice`, {
+    const init: any = {
       method: 'POST',
       body: formData as any,
       headers,
       // Required for multipart/form-data when using Node's fetch (undici).
       // Without this, SuperSlice can fail to parse multipart boundaries.
-      duplex: 'half' as any,
-    })
+      duplex: 'half',
+    }
+    const response = await fetch(`${this.baseUrl}/slice`, init)
 
     const contentType = response.headers.get('content-type')
     const isJson = contentType?.includes('application/json')
