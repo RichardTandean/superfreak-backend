@@ -8,7 +8,9 @@ const PricingRowSchema = {
   pricePerGram: { type: Number, required: true },
 }
 
-@Schema({ collection: 'printing-pricing', timestamps: true })
+// NOTE: Mongo collection name is plural in this project.
+// This must match the real collection name so Nest endpoints return pricingTable rows.
+@Schema({ collection: 'printing-pricings', timestamps: true })
 export class PrintingPricing {
   @Prop({ type: Types.ObjectId, ref: 'FilamentType', required: true })
   filamentType: Types.ObjectId
