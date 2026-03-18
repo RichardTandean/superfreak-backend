@@ -26,6 +26,9 @@ export class SliceService {
       method: 'POST',
       body: formData as any,
       headers,
+      // Required for multipart/form-data when using Node's fetch (undici).
+      // Without this, SuperSlice can fail to parse multipart boundaries.
+      duplex: 'half' as any,
     })
 
     const contentType = response.headers.get('content-type')
