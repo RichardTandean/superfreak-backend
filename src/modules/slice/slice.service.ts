@@ -16,21 +16,19 @@ export class SliceService {
    * Proxy multipart request to SuperSlice /slice endpoint.
    * formData is from the 'form-data' package (stream + getHeaders()).
    */
-  async slice(formData: { getHeaders: () => Record<string, string> }): Promise<{
+  async slice(formData: any): Promise<{
     status: number
     data: any
     contentType: string | null
   }> {
     const headers = formData.getHeaders()
-    const init: any = {
+    const body = formData.getBuffer()
+
+    const response = await fetch(`${this.baseUrl}/slice`, {
       method: 'POST',
-      body: formData as any,
+      body,
       headers,
-      // Required for multipart/form-data when using Node's fetch (undici).
-      // Without this, SuperSlice can fail to parse multipart boundaries.
-      duplex: 'half',
-    }
-    const response = await fetch(`${this.baseUrl}/slice`, init)
+    })
 
     const contentType = response.headers.get('content-type')
     const isJson = contentType?.includes('application/json')
