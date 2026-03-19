@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { Model, Types } from 'mongoose'
 import { R2Service } from '../../shared/r2.service'
 import { TempFile, TempFileDocument } from './schemas/temp-file.schema'
 import { UserFile, UserFileDocument } from './schemas/user-file.schema'
@@ -40,17 +40,17 @@ export class FilesService {
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + TEMP_EXPIRY_HOURS)
 
+    const id = new Types.ObjectId()
+    const key = `temp/${id.toString()}.${ext}`
+
     const doc = await this.tempFileModel.create({
+      _id: id,
       userId,
-      key: '', // set after we have id
+      key,
       fileName: file.originalname || 'file',
       fileSize: file.size,
       expiresAt,
     })
-
-    const key = `temp/${doc._id.toString()}.${ext}`
-    doc.key = key
-    await doc.save()
 
     await this.r2.upload(key, Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer), contentType)
 
