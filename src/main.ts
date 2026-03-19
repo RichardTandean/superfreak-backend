@@ -1,7 +1,8 @@
-import { NestFactory } from '@nestjs/core'
+import { NestFactory, HttpAdapterHost } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import * as cookieParser from 'cookie-parser'
 import { AppModule } from './app.module'
+import { AllExceptionsFilter } from './filters/all-exceptions.filter'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -22,6 +23,9 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   )
+
+  const httpAdapterHost = app.get(HttpAdapterHost)
+  app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost))
 
   const port = process.env.PORT ?? 4000
   await app.listen(port)
