@@ -21,6 +21,20 @@ function generateOrderNumber(): string {
   return `ORD-${timestamp}-${random}`
 }
 
+function normalizeIncomingOrderItems(items: unknown[]): Record<string, unknown>[] {
+  return items.map((raw, index) => {
+    const candidate =
+      Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object'
+        ? raw[0]
+        : raw
+
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      throw new BadRequestException(`Invalid order item at index ${index}`)
+    }
+    return candidate as Record<string, unknown>
+  })
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -48,11 +62,12 @@ export class OrdersService {
 
   async create(userId: string, dto: CreateOrderDto) {
     const orderNumber = generateOrderNumber()
+    const normalizedItems = normalizeIncomingOrderItems(dto.items)
     const doc = await this.orderModel.create({
       orderNumber,
       user: userId,
       status: 'unpaid',
-      items: dto.items,
+      items: normalizedItems,
       summary: dto.summary,
       shipping: dto.shipping ?? {},
       paymentInfo: dto.paymentInfo ?? { paymentStatus: 'pending' },
