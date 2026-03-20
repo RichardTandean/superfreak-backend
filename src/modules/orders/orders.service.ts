@@ -22,6 +22,9 @@ function generateOrderNumber(): string {
 }
 
 function normalizeIncomingOrderItems(items: unknown[]): Record<string, unknown>[] {
+  if (!items.length) {
+    throw new BadRequestException('Order must contain at least one item')
+  }
   return items.map((raw, index) => {
     const candidate =
       Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'object'
@@ -29,9 +32,17 @@ function normalizeIncomingOrderItems(items: unknown[]): Record<string, unknown>[
         : raw
 
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-      throw new BadRequestException(`Invalid order item at index ${index}`)
+      throw new BadRequestException(`Invalid order item at index ${index}: not a valid object`)
     }
-    return candidate as Record<string, unknown>
+
+    const obj = candidate as Record<string, unknown>
+    if (!obj.fileName && !obj.file) {
+      throw new BadRequestException(
+        `Invalid order item at index ${index}: missing fileName or file reference`,
+      )
+    }
+
+    return obj
   })
 }
 

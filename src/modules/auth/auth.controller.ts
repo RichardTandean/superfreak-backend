@@ -13,15 +13,28 @@ import { UserDocument } from './schemas/user.schema'
 const COOKIE_NAME = 'access_token'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days in seconds
 
+function getCookieDomain(): string | undefined {
+  const frontendUrl = process.env.FRONTEND_URL
+  if (!frontendUrl) return undefined
+  try {
+    const host = new URL(frontendUrl).hostname
+    const parts = host.split('.')
+    if (parts.length >= 2) {
+      return '.' + parts.slice(-2).join('.')
+    }
+  } catch {}
+  return undefined
+}
+
 function setAuthCookie(res: Response, token: string) {
   const isProd = process.env.NODE_ENV === 'production'
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProd,
-    // `lax` is safer across auth redirects/subdomain navigation than strict.
     sameSite: 'lax',
     maxAge: COOKIE_MAX_AGE * 1000,
     path: '/',
+    domain: getCookieDomain(),
   })
 }
 
@@ -32,6 +45,7 @@ function clearAuthCookie(res: Response) {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
+    domain: getCookieDomain(),
   })
 }
 
