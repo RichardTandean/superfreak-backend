@@ -18,7 +18,8 @@ function setAuthCookie(res: Response, token: string) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    // `lax` is safer across auth redirects/subdomain navigation than strict.
+    sameSite: 'lax',
     maxAge: COOKIE_MAX_AGE * 1000,
     path: '/',
   })
@@ -30,7 +31,7 @@ function clearAuthCookie(res: Response) {
     path: '/',
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    sameSite: 'lax',
   })
 }
 
