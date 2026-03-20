@@ -13,14 +13,14 @@ import { Response } from 'express'
 import { OrdersService } from './orders.service'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
 
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(SessionGuard)
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 

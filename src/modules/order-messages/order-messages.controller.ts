@@ -9,7 +9,7 @@ import {
   Req,
 } from '@nestjs/common'
 import { Response, Request } from 'express'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
 import { OrderMessagesService } from './order-messages.service'
@@ -19,7 +19,7 @@ import Redis from 'ioredis'
 import { REDIS_CLIENT } from '../../config/redis.module'
 
 @Controller('orders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(SessionGuard)
 export class OrderMessagesController {
   constructor(
     private readonly orderMessages: OrderMessagesService,

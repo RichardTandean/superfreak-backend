@@ -12,7 +12,7 @@ import {
 import { Response } from 'express'
 import { FilesService } from './files.service'
 import { FinalizeFilesDto } from './dto/finalize-files.dto'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
@@ -32,7 +32,7 @@ export class FilesController {
   constructor(private readonly files: FilesService) {}
 
   @Post('temp')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 500 * 1024 * 1024 } }))
   async uploadTemp(
     @CurrentUser() user: UserDocument,
@@ -44,7 +44,7 @@ export class FilesController {
   }
 
   @Get('temp/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   async getTemp(
     @Param('id') id: string,
     @CurrentUser() user: UserDocument,
@@ -62,14 +62,14 @@ export class FilesController {
   }
 
   @Delete('temp/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   async deleteTemp(@Param('id') id: string, @CurrentUser() user: UserDocument) {
     await this.files.deleteTemp(id, user._id.toString())
     return { success: true }
   }
 
   @Post('finalize')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   finalize(@CurrentUser() user: UserDocument, @Body() dto: FinalizeFilesDto) {
     return this.files.finalize(user._id.toString(), {
       orderId: dto.orderId,
@@ -78,7 +78,7 @@ export class FilesController {
   }
 
   @Post('cleanup')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(SessionGuard, RolesGuard)
   @Roles('admin')
   cleanup() {
     return this.files.cleanup()

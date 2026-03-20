@@ -1,17 +1,18 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { Request, Response } from 'express'
 import { AuthGuard } from '@nestjs/passport'
-import { AuthService, AuthResult } from './auth.service'
+import { AuthService, SafeUser } from './auth.service'
+import { SessionService } from './session.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
 import { SetPasswordDto } from './dto/set-password.dto'
-import { JwtAuthGuard } from './guards/jwt-auth.guard'
+import { SessionGuard } from './guards/session.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { UserDocument } from './schemas/user.schema'
 
-const COOKIE_NAME = 'access_token'
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days in seconds
+const COOKIE_NAME = 'sid'
+const COOKIE_MAX_AGE = 60 * 60 // 1 hour in seconds
 
 function getCookieDomain(): string | undefined {
   const frontendUrl = process.env.FRONTEND_URL
@@ -26,9 +27,9 @@ function getCookieDomain(): string | undefined {
   return undefined
 }
 
-function setAuthCookie(res: Response, token: string) {
+function setSessionCookie(res: Response, sessionId: string) {
   const isProd = process.env.NODE_ENV === 'production'
-  res.cookie(COOKIE_NAME, token, {
+  res.cookie(COOKIE_NAME, sessionId, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
@@ -38,7 +39,7 @@ function setAuthCookie(res: Response, token: string) {
   })
 }
 
-function clearAuthCookie(res: Response) {
+function clearSessionCookie(res: Response) {
   const isProd = process.env.NODE_ENV === 'production'
   res.clearCookie(COOKIE_NAME, {
     path: '/',
@@ -51,7 +52,10 @@ function clearAuthCookie(res: Response) {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly sessions: SessionService,
+  ) {}
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
@@ -67,55 +71,81 @@ export class AuthController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
       return res.redirect(`${frontendUrl}?error=auth_failed`)
     }
-    const result = this.auth.buildAuthResult(user)
-    setAuthCookie(res, result.accessToken)
+    const role = typeof user.role === 'string' ? user.role : 'user'
+    const sessionId = await this.sessions.createSession(user._id.toString(), role)
+    setSessionCookie(res, sessionId)
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
     return res.redirect(frontendUrl)
   }
 
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response): Promise<AuthResult> {
-    const result = await this.auth.register(dto)
-    setAuthCookie(res, result.accessToken)
-    return result
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ user: SafeUser }> {
+    const user = await this.auth.register(dto)
+    const sessionId = await this.sessions.createSession(user._id.toString(), user.role)
+    setSessionCookie(res, sessionId)
+    return { user: this.auth.toSafeUser(user) }
   }
 
   @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response): Promise<AuthResult> {
-    const result = await this.auth.login(dto)
-    setAuthCookie(res, result.accessToken)
-    return result
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ user: SafeUser }> {
+    const user = await this.auth.login(dto)
+    const role = typeof user.role === 'string' ? user.role : 'user'
+    const sessionId = await this.sessions.createSession(user._id.toString(), role)
+    setSessionCookie(res, sessionId)
+    return { user: this.auth.toSafeUser(user) }
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response): { message: string } {
-    clearAuthCookie(res)
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string }> {
+    const sessionId = req.cookies?.[COOKIE_NAME]
+    if (sessionId) {
+      await this.sessions.destroySession(sessionId)
+    }
+    clearSessionCookie(res)
     return { message: 'Logged out' }
   }
 
   @Post('change-password')
-  @UseGuards(JwtAuthGuard)
-  async changePassword(@CurrentUser() user: UserDocument, @Body() dto: ChangePasswordDto) {
-    return this.auth.changePassword(user._id.toString(), dto)
+  @UseGuards(SessionGuard)
+  async changePassword(
+    @CurrentUser() user: UserDocument,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.auth.changePassword(user._id.toString(), dto)
+    // Invalidate all sessions on password change for security
+    await this.sessions.destroyAllForUser(user._id.toString())
+    // Create a fresh session so the current user stays logged in
+    const newSessionId = await this.sessions.createSession(
+      user._id.toString(),
+      typeof user.role === 'string' ? user.role : 'user',
+    )
+    const res = req.res!
+    setSessionCookie(res, newSessionId)
+    return result
   }
 
   @Post('set-password')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   async setPassword(@CurrentUser() user: UserDocument, @Body() dto: SetPasswordDto) {
     return this.auth.setPassword(user._id.toString(), dto)
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(SessionGuard)
   async me(@CurrentUser() user: UserDocument) {
     const hasPassword = await this.auth.userHasPassword(user._id.toString())
     return {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      image: user.image,
-      phoneNumber: user.phoneNumber,
+      ...this.auth.toSafeUser(user),
       hasPassword,
     }
   }

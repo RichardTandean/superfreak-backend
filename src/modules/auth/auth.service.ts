@@ -4,7 +4,6 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import * as bcrypt from 'bcrypt'
@@ -14,44 +13,37 @@ import { LoginDto } from './dto/login.dto'
 import { ChangePasswordDto } from './dto/change-password.dto'
 import { SetPasswordDto } from './dto/set-password.dto'
 
-export interface JwtPayload {
-  sub: string
+export interface SafeUser {
+  id: string
   email: string
-}
-
-export interface AuthResult {
-  user: { id: string; email: string; name: string; role: string; image?: string; phoneNumber?: string }
-  accessToken: string
-  expiresIn: number
+  name: string
+  role: string
+  image?: string
+  phoneNumber?: string
 }
 
 @Injectable()
 export class AuthService {
-  private readonly jwtExpiresIn = 60 * 60 * 24 * 7 // 7 days in seconds
-
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly jwtService: JwtService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<AuthResult> {
+  async register(dto: RegisterDto): Promise<UserDocument> {
     const existing = await this.userModel.findOne({ email: dto.email.toLowerCase() }).exec()
     if (existing) {
       throw new ConflictException('An account with this email already exists')
     }
 
     const hashed = await bcrypt.hash(dto.password, 12)
-    const user = await this.userModel.create({
+    return this.userModel.create({
       email: dto.email.toLowerCase().trim(),
       name: dto.name.trim(),
       password: hashed,
       role: 'user',
     })
-
-    return this.buildAuthResult(user)
   }
 
-  async login(dto: LoginDto): Promise<AuthResult> {
+  async login(dto: LoginDto): Promise<UserDocument> {
     const user = await this.userModel
       .findOne({ email: dto.email.toLowerCase() })
       .select('+password')
@@ -65,7 +57,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password')
     }
 
-    return this.buildAuthResult(user)
+    return user
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {
@@ -86,7 +78,6 @@ export class AuthService {
     return { message: 'Password changed successfully' }
   }
 
-  /** Find or create user from Google profile; used by Google OAuth strategy. */
   async findOrCreateGoogleUser(profile: {
     id: string
     emails?: Array<{ value: string; verified?: boolean }>
@@ -98,7 +89,8 @@ export class AuthService {
       throw new UnauthorizedException('Google account has no email')
     }
 
-    let user = await this.userModel.findOne({ email }).exec()
+    // Match by googleId first (most reliable), then fall back to email
+    let user = await this.userModel.findOne({ googleId: profile.id }).exec()
     if (user) {
       if (!user.image && profile.photos?.[0]?.value) {
         user.image = profile.photos[0].value
@@ -107,13 +99,24 @@ export class AuthService {
       return user
     }
 
-    user = await this.userModel.create({
+    user = await this.userModel.findOne({ email }).exec()
+    if (user) {
+      // Link Google account to existing email user
+      user.googleId = profile.id
+      if (!user.image && profile.photos?.[0]?.value) {
+        user.image = profile.photos[0].value
+      }
+      await user.save()
+      return user
+    }
+
+    return this.userModel.create({
       email,
       name: profile.displayName?.trim() || email.split('@')[0] || 'User',
       role: 'user',
+      googleId: profile.id,
       image: profile.photos?.[0]?.value,
     })
-    return user
   }
 
   async validateUserById(id: string): Promise<UserDocument | null> {
@@ -146,20 +149,14 @@ export class AuthService {
     return { message: 'Password set successfully' }
   }
 
-  buildAuthResult(user: UserDocument): AuthResult {
-    const payload: JwtPayload = { sub: user._id.toString(), email: user.email }
-    const accessToken = this.jwtService.sign(payload, { expiresIn: this.jwtExpiresIn })
+  toSafeUser(user: UserDocument): SafeUser {
     return {
-      user: {
-        id: user._id.toString(),
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        image: user.image,
-        phoneNumber: user.phoneNumber,
-      },
-      accessToken,
-      expiresIn: this.jwtExpiresIn,
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: typeof user.role === 'string' ? user.role : 'user',
+      image: user.image,
+      phoneNumber: user.phoneNumber,
     }
   }
 }

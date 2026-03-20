@@ -14,12 +14,12 @@ import { Response } from 'express'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { UsersService } from './users.service'
 import { UpdateMeDto } from './dto/update-me.dto'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(SessionGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 

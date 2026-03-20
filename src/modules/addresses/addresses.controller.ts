@@ -2,12 +2,12 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@n
 import { AddressesService } from './addresses.service'
 import { CreateAddressDto } from './dto/create-address.dto'
 import { UpdateAddressDto } from './dto/update-address.dto'
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
 
 @Controller('addresses')
-@UseGuards(JwtAuthGuard)
+@UseGuards(SessionGuard)
 export class AddressesController {
   constructor(private readonly addresses: AddressesService) {}
 
