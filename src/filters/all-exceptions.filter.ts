@@ -25,23 +25,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const method = (request as any)?.method
     const url = (request as any)?.originalUrl ?? (request as any)?.url
     const contentType = (request as any)?.headers?.['content-type']
+    const isProduction = process.env.NODE_ENV === 'production'
 
-    // This is intentionally verbose: we need the actual root-cause for body parsing issues.
-    // Nest often responds with a generic 400 without logging the underlying parser error.
-    console.error('[HTTP Exception]', {
+    const baseLog = {
       method,
       url,
       contentType,
       statusCode,
-      responseBody,
       exceptionName:
         typeof exception === 'object' && exception && 'name' in exception
           ? (exception as any).name
           : undefined,
-      exceptionMessage:
-        exception instanceof Error ? exception.message : String(exception),
-      stack: exception instanceof Error ? exception.stack : undefined,
-    })
+      exceptionMessage: exception instanceof Error ? exception.message : String(exception),
+    }
+    if (isProduction) {
+      console.error('[HTTP Exception]', baseLog)
+    } else {
+      console.error('[HTTP Exception]', {
+        ...baseLog,
+        responseBody,
+        stack: exception instanceof Error ? exception.stack : undefined,
+      })
+    }
 
     httpAdapter.reply(response, responseBody as any, statusCode)
   }

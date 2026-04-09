@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { InjectModel } from '@nestjs/mongoose'
@@ -11,6 +12,7 @@ import * as Midtrans from 'midtrans-client'
 import type { Snap, CoreApi } from 'midtrans-client'
 import { Order, OrderDocument } from '../orders/schemas/order.schema'
 import { User, UserDocument } from '../auth/schemas/user.schema'
+import { isValidMidtransSignature } from './midtrans-signature.util'
 
 type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
@@ -74,6 +76,34 @@ export class PaymentsService {
     this.core = new Midtrans.CoreApi({ isProduction, serverKey, clientKey })
   }
 
+  private verifyWebhookSignature(notification: Record<string, unknown>) {
+    const serverKey = this.config.get<string>('MIDTRANS_SERVER_KEY', '')
+    if (!serverKey) {
+      throw new UnauthorizedException('Midtrans server key is not configured')
+    }
+
+    const orderId = String(notification.order_id ?? '')
+    const statusCode = String(notification.status_code ?? '')
+    const grossAmount = String(notification.gross_amount ?? '')
+    const signatureKey = String(notification.signature_key ?? '')
+
+    if (!orderId || !statusCode || !grossAmount || !signatureKey) {
+      throw new UnauthorizedException('Invalid webhook signature payload')
+    }
+
+    const isValid = isValidMidtransSignature({
+      orderId,
+      statusCode,
+      grossAmount,
+      serverKey,
+      signatureKey,
+    })
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid Midtrans signature')
+    }
+  }
+
   async initialize(orderId: string, userId: string, paymentMethod?: string) {
     const order = await this.orderModel.findById(orderId).lean().exec()
     if (!order) throw new NotFoundException('Order not found')
@@ -88,7 +118,12 @@ export class PaymentsService {
     if (!user) throw new BadRequestException('Order user information is missing')
 
     const midtransOrderId = `${order.orderNumber}-T${Date.now()}`
-    const grossAmount = Math.round((order.summary as any)?.totalAmount ?? 0)
+    const summary = (order.summary as Record<string, unknown> | undefined) ?? {}
+    const payableFromServer = Number(summary.payableAmount ?? summary.totalAmount ?? 0)
+    const grossAmount = Math.max(0, Math.round(Number.isFinite(payableFromServer) ? payableFromServer : 0))
+    if (grossAmount <= 0) {
+      throw new BadRequestException('Invalid payable amount for this order')
+    }
 
     const parameter: Record<string, unknown> = {
       transaction_details: {
@@ -175,6 +210,7 @@ export class PaymentsService {
   }
 
   async handleMidtransWebhook(notification: Record<string, unknown>) {
+    this.verifyWebhookSignature(notification)
     const transactionStatus = await this.core.transaction.notification(notification)
     const midtransOrderId = transactionStatus.order_id
 

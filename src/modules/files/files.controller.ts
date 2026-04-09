@@ -19,6 +19,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { UseInterceptors, UploadedFile } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
+
+const MAX_UPLOAD_MB = 100
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 const MIME_BY_EXT: Record<string, string> = {
   stl: 'model/stl',
@@ -33,14 +37,20 @@ export class FilesController {
 
   @Post('temp')
   @UseGuards(SessionGuard)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 500 * 1024 * 1024 } }))
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
   async uploadTemp(
     @CurrentUser() user: UserDocument,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('No file provided')
     const result = await this.files.uploadTemp(user._id.toString(), file)
-    return { sessionId: result.tempFileId, files: [result], expiresAt: result.expiresAt }
+    return {
+      tempFileId: result.tempFileId,
+      sessionId: result.tempFileId, // backward-compatible alias
+      files: [result],
+      expiresAt: result.expiresAt,
+    }
   }
 
   @Get('temp/:id')

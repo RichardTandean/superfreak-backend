@@ -9,7 +9,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Headers,
-  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { BlogService } from './blog.service'
@@ -60,7 +60,7 @@ export class BlogController {
       apiKey.length === validKey.length &&
       crypto.timingSafeEqual(Buffer.from(validKey, 'utf-8'), Buffer.from(apiKey, 'utf-8'))
     if (!valid) {
-      throw new BadRequestException('Unauthorized - Invalid or missing BLOG_API_KEY')
+      throw new UnauthorizedException('Invalid or missing BLOG_API_KEY')
     }
 
     let featuredImageUrl: string | undefined

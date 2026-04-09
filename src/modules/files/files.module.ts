@@ -16,7 +16,10 @@ import { AuthModule } from '../auth/auth.module'
       { name: UserFile.name, schema: UserFileSchema },
       { name: Order.name, schema: OrderSchema },
     ]),
-    MulterModule.register({ storage: multer.memoryStorage() }),
+    MulterModule.register({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 100 * 1024 * 1024 },
+    }),
     AuthModule,
   ],
   controllers: [FilesController],

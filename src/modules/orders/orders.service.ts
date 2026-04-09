@@ -10,6 +10,7 @@ import { Order, OrderDocument } from './schemas/order.schema'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { InvoiceService } from './invoice.service'
+import { PrintingService } from '../printing/printing.service'
 
 const CANCELABLE_STATUSES = ['unpaid', 'in-review', 'needs-discussion']
 
@@ -46,12 +47,111 @@ function normalizeIncomingOrderItems(items: unknown[]): Record<string, unknown>[
   })
 }
 
+function toSafeNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ''))
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+function roundCurrency(value: number): number {
+  return Math.max(0, Math.round(value))
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
+    private readonly printing: PrintingService,
     private readonly invoiceService: InvoiceService,
   ) {}
+
+  private async buildTrustedOrderPricing(normalizedItems: Record<string, unknown>[], shipping: Record<string, unknown>) {
+    let subtotal = 0
+    let totalWeight = 0
+    let totalPrintTime = 0
+
+    const trustedItems = await Promise.all(
+      normalizedItems.map(async (item, index) => {
+        const config =
+          item.configuration && typeof item.configuration === 'object'
+            ? (item.configuration as Record<string, unknown>)
+            : {}
+        const statistics =
+          item.statistics && typeof item.statistics === 'object'
+            ? (item.statistics as Record<string, unknown>)
+            : {}
+
+        const material = String(config.material ?? '').trim()
+        const filamentVariantId = String(
+          (config as Record<string, unknown>).filamentVariantId ?? '',
+        ).trim()
+        const layerHeight = toSafeNumber(config.layerHeight)
+        const quantityRaw = toSafeNumber(item.quantity)
+        const quantity = Math.max(1, Math.min(100, Math.trunc(quantityRaw || 1)))
+        const filamentWeightPerUnit =
+          toSafeNumber(statistics.filamentWeight) || toSafeNumber(statistics.filament_weight_g)
+        const printTimeMinutesPerUnit =
+          toSafeNumber(statistics.printTime) || toSafeNumber(statistics.print_time_minutes)
+
+        if (!material) {
+          throw new BadRequestException(`Order item at index ${index} is missing material`)
+        }
+        if (!filamentVariantId) {
+          throw new BadRequestException(`Order item at index ${index} is missing filamentVariantId`)
+        }
+        if (layerHeight <= 0) {
+          throw new BadRequestException(`Order item at index ${index} has invalid layerHeight`)
+        }
+        if (filamentWeightPerUnit <= 0) {
+          throw new BadRequestException(`Order item at index ${index} has invalid filament weight`)
+        }
+
+        const pricePerGram = await this.printing.resolvePricePerGramForVariant(
+          filamentVariantId,
+          layerHeight,
+        )
+        const totalItemWeight = filamentWeightPerUnit * quantity
+        const totalItemPrice = roundCurrency(totalItemWeight * pricePerGram)
+        const totalItemPrintTime = printTimeMinutesPerUnit * quantity
+
+        subtotal += totalItemPrice
+        totalWeight += totalItemWeight
+        totalPrintTime += totalItemPrintTime
+
+        return {
+          ...item,
+          quantity,
+          statistics: {
+            ...statistics,
+            filamentWeight: filamentWeightPerUnit,
+            printTime: printTimeMinutesPerUnit,
+          },
+          pricing: {
+            pricePerGram,
+          },
+          totalPrice: totalItemPrice,
+        }
+      }),
+    )
+
+    const shippingCost = Math.max(0, roundCurrency(toSafeNumber(shipping.shippingCost)))
+    const totalAmount = subtotal + shippingCost
+
+    return {
+      trustedItems,
+      summary: {
+        subtotal,
+        shippingCost,
+        totalAmount,
+        payableAmount: totalAmount,
+        totalWeight,
+        totalPrintTime,
+      },
+    }
+  }
 
   async list(userId: string, isAdmin: boolean) {
     const filter = isAdmin ? {} : { user: userId }
@@ -74,13 +174,18 @@ export class OrdersService {
   async create(userId: string, dto: CreateOrderDto) {
     const orderNumber = generateOrderNumber()
     const normalizedItems = normalizeIncomingOrderItems(dto.items)
+    const shipping =
+      dto.shipping && typeof dto.shipping === 'object'
+        ? (dto.shipping as unknown as Record<string, unknown>)
+        : {}
+    const trustedPricing = await this.buildTrustedOrderPricing(normalizedItems, shipping)
     const doc = await this.orderModel.create({
       orderNumber,
       user: userId,
       status: 'unpaid',
-      items: normalizedItems,
-      summary: dto.summary,
-      shipping: dto.shipping ?? {},
+      items: trustedPricing.trustedItems,
+      summary: trustedPricing.summary,
+      shipping,
       paymentInfo: dto.paymentInfo ?? { paymentStatus: 'pending' },
       customerNotes: dto.customerNotes,
       statusHistory: [{ status: 'unpaid', changedAt: new Date() }],

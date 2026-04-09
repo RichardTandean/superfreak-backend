@@ -34,4 +34,5 @@ USER nestjs
 EXPOSE 4000
 
 ENV NODE_ENV=production
-CMD ["node", "dist/main.js"]
+# Nest `nest build` emits `dist/src/main.js` (tsconfig preserves `src/` under `outDir`)
+CMD ["node", "dist/src/main.js"]

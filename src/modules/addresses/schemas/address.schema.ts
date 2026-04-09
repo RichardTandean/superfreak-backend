@@ -66,3 +66,10 @@ export class Address {
 export const AddressSchema = SchemaFactory.createForClass(Address)
 
 AddressSchema.index({ user: 1 })
+AddressSchema.index(
+  { user: 1, isDefault: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDefault: true },
+  },
+)

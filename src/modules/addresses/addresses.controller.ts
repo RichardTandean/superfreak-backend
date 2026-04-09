@@ -25,7 +25,10 @@ export class AddressesController {
   }
 
   @Post()
-  create(@CurrentUser() user: UserDocument, @Body() dto: CreateAddressDto) {
+  create(
+    @CurrentUser() user: UserDocument,
+    @Body() dto: CreateAddressDto,
+  ): Promise<Record<string, unknown>> {
     return this.addresses.create(user._id.toString(), dto)
   }
 

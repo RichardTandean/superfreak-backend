@@ -10,6 +10,7 @@ import { SetPasswordDto } from './dto/set-password.dto'
 import { SessionGuard } from './guards/session.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
 import { UserDocument } from './schemas/user.schema'
+import { Throttle } from '@nestjs/throttler'
 
 const COOKIE_NAME = 'sid'
 const COOKIE_MAX_AGE = 60 * 60 // 1 hour in seconds
@@ -79,6 +80,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -90,6 +92,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -116,6 +119,7 @@ export class AuthController {
 
   @Post('change-password')
   @UseGuards(SessionGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async changePassword(
     @CurrentUser() user: UserDocument,
     @Body() dto: ChangePasswordDto,

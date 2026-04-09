@@ -18,6 +18,7 @@ import { RolesGuard } from '../auth/guards/roles.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
+import { isAdminUser } from '../auth/utils/admin.util'
 
 @Controller('orders')
 @UseGuards(SessionGuard)
@@ -26,8 +27,7 @@ export class OrdersController {
 
   @Get()
   list(@CurrentUser() user: UserDocument) {
-    const isAdmin = user.role === 'admin'
-    return this.orders.list(user._id.toString(), isAdmin)
+    return this.orders.list(user._id.toString(), isAdminUser(user))
   }
 
   @Post()
@@ -40,8 +40,7 @@ export class OrdersController {
     @Param('id') id: string,
     @CurrentUser() user: UserDocument,
   ): Promise<Record<string, unknown>> {
-    const isAdmin = user.role === 'admin'
-    return this.orders.findOne(id, user._id.toString(), isAdmin)
+    return this.orders.findOne(id, user._id.toString(), isAdminUser(user))
   }
 
   @Patch(':id')

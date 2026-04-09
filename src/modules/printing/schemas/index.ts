@@ -1,3 +1,6 @@
 export * from './filament-type.schema'
+export * from './filament-list.schema'
+export * from './layer-height.schema'
+export * from './catalog-pricing.schema'
 export * from './printing-option.schema'
 export * from './printing-pricing.schema'

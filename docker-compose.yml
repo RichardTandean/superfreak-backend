@@ -19,10 +19,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      # Use Mongo from payload stack (same DB as mongo-express)
-      DATABASE_URL: mongodb://mongo:27017/superfreak
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/superfreak?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     depends_on:
+      mongodb: { condition: service_healthy }
       redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -33,16 +33,17 @@ services:
     networks:
       - default
       - app-network
+      - superslice-network
 
   mongodb:
     image: mongo:7
     container_name: superfreak-mongodb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: superfreak
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
@@ -55,13 +56,13 @@ services:
     image: redis:7-alpine
     container_name: superfreak-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,3 +75,6 @@ networks:
   app-network:
     external: true
     name: superfreak_app-network
+  superslice-network:
+    external: true
+    name: superslice_default

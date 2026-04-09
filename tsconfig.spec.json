@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node", "express", "multer"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.spec.ts", "src/**/*.d.ts"]
+}

@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller'
 import { GoogleStrategy } from './strategies/google.strategy'
 import { SessionService } from './session.service'
 import { SessionGuard } from './guards/session.guard'
+import { RolesGuard } from './guards/roles.guard'
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { SessionGuard } from './guards/session.guard'
     PassportModule.register({ defaultStrategy: 'google' }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, SessionService, SessionGuard, GoogleStrategy],
-  exports: [AuthService, SessionService, SessionGuard],
+  providers: [AuthService, SessionService, SessionGuard, RolesGuard, GoogleStrategy],
+  exports: [AuthService, SessionService, SessionGuard, RolesGuard],
 })
 export class AuthModule {}

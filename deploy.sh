@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run from superfreak-backend directory on your VPS.
-# First time: copy .env.example to .env and edit (JWT_SECRET, CORS_ORIGIN, etc.).
+# First time: copy .env.example to .env and edit (CORS_ORIGIN, DB/Redis vars, etc.).
 # Uses current branch for git pull (e.g. main or staging).
 
 set -e

@@ -7,17 +7,25 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  UseGuards,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Request } from 'express'
 import { SliceService } from './slice.service'
+import { SessionGuard } from '../auth/guards/session.guard'
+import { Throttle } from '@nestjs/throttler'
+
+const MAX_SLICE_UPLOAD_MB = 100
+const MAX_SLICE_UPLOAD_BYTES = MAX_SLICE_UPLOAD_MB * 1024 * 1024
 
 @Controller('slice')
 export class SliceController {
   constructor(private readonly sliceService: SliceService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 500 * 1024 * 1024 } }))
+  @UseGuards(SessionGuard)
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_SLICE_UPLOAD_BYTES } }))
   async proxy(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: Request,

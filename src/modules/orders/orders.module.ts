@@ -5,11 +5,13 @@ import { OrdersService } from './orders.service'
 import { OrdersController } from './orders.controller'
 import { InvoiceService } from './invoice.service'
 import { AuthModule } from '../auth/auth.module'
+import { PrintingModule } from '../printing/printing.module'
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
     AuthModule,
+    PrintingModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, InvoiceService],

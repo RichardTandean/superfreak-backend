@@ -12,6 +12,7 @@ import { Response, Request } from 'express'
 import { SessionGuard } from '../auth/guards/session.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { UserDocument } from '../auth/schemas/user.schema'
+import { isAdminUser } from '../auth/utils/admin.util'
 import { OrderMessagesService } from './order-messages.service'
 import { CreateOrderMessageDto } from './dto/create-message.dto'
 import { Inject } from '@nestjs/common'
@@ -28,8 +29,7 @@ export class OrderMessagesController {
 
   @Get(':id/messages')
   list(@Param('id') orderId: string, @CurrentUser() user: UserDocument) {
-    const isAdmin = user.role === 'admin'
-    return this.orderMessages.list(orderId, user._id.toString(), isAdmin)
+    return this.orderMessages.list(orderId, user._id.toString(), isAdminUser(user))
   }
 
   @Post(':id/messages')
@@ -38,8 +38,7 @@ export class OrderMessagesController {
     @CurrentUser() user: UserDocument,
     @Body() dto: CreateOrderMessageDto,
   ): Promise<Record<string, unknown>> {
-    const isAdmin = user.role === 'admin'
-    return this.orderMessages.create(orderId, user._id.toString(), isAdmin, dto)
+    return this.orderMessages.create(orderId, user._id.toString(), isAdminUser(user), dto)
   }
 
   @Get(':id/messages/stream')
@@ -49,11 +48,10 @@ export class OrderMessagesController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const isAdmin = user.role === 'admin'
     const userId = user._id.toString()
 
     this.orderMessages
-      .checkOrderAccess(orderId, userId, isAdmin)
+      .checkOrderAccess(orderId, userId, isAdminUser(user))
       .then((order) => {
         if (!order) {
           res.status(404).json({ error: 'Order not found' })

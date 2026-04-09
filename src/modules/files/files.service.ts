@@ -12,7 +12,7 @@ import { UserFile, UserFileDocument } from './schemas/user-file.schema'
 import { Order, OrderDocument } from '../orders/schemas/order.schema'
 
 const TEMP_EXPIRY_HOURS = 24
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500 MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
 
 @Injectable()
 export class FilesService {
