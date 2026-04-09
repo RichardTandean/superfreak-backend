@@ -4,8 +4,8 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common'
-import { InjectConnection, InjectModel } from '@nestjs/mongoose'
-import { Connection, Model } from 'mongoose'
+import { InjectModel } from '@nestjs/mongoose'
+import { Model } from 'mongoose'
 import { Address, AddressDocument } from './schemas/address.schema'
 import { CreateAddressDto } from './dto/create-address.dto'
 import { UpdateAddressDto } from './dto/update-address.dto'
@@ -14,10 +14,7 @@ const MAX_ADDRESSES_PER_USER = 3
 
 @Injectable()
 export class AddressesService {
-  constructor(
-    @InjectModel(Address.name) private readonly addressModel: Model<AddressDocument>,
-    @InjectConnection() private readonly connection: Connection,
-  ) {}
+  constructor(@InjectModel(Address.name) private readonly addressModel: Model<AddressDocument>) {}
 
   async findAllByUser(userId: string) {
     const docs = await this.addressModel
@@ -36,35 +33,28 @@ export class AddressesService {
   }
 
   async create(userId: string, dto: CreateAddressDto): Promise<Record<string, unknown>> {
-    const session = await this.connection.startSession()
     try {
-      await session.withTransaction(async () => {
-        const count = await this.addressModel.countDocuments({ user: userId }).session(session).exec()
-        if (count >= MAX_ADDRESSES_PER_USER) {
-          throw new BadRequestException('Maximum 3 addresses allowed per user')
-        }
+      const count = await this.addressModel.countDocuments({ user: userId }).exec()
+      if (count >= MAX_ADDRESSES_PER_USER) {
+        throw new BadRequestException('Maximum 3 addresses allowed per user')
+      }
 
-        const isFirst = count === 0
-        const isDefault = dto.isDefault ?? isFirst
+      const isFirst = count === 0
+      const isDefault = dto.isDefault ?? isFirst
 
-        if (isDefault) {
-          await this.addressModel
-            .updateMany({ user: userId }, { $set: { isDefault: false } })
-            .session(session)
-            .exec()
-        }
+      if (isDefault) {
+        await this.addressModel
+          .updateMany({ user: userId }, { $set: { isDefault: false } })
+          .exec()
+      }
 
-        await this.addressModel.create(
-          [
-            {
-              ...dto,
-              user: userId,
-              isDefault,
-            },
-          ],
-          { session },
-        )
-      })
+      await this.addressModel.create([
+        {
+          ...dto,
+          user: userId,
+          isDefault,
+        },
+      ])
 
       const created = await this.addressModel
         .findOne({ user: userId })
@@ -78,8 +68,6 @@ export class AddressesService {
         throw new BadRequestException('Only one default address is allowed')
       }
       throw error
-    } finally {
-      await session.endSession()
     }
   }
 
@@ -87,30 +75,24 @@ export class AddressesService {
     const doc = await this.addressModel.findById(id).exec()
     if (!doc) throw new NotFoundException('Address not found')
     if (String(doc.user) !== userId) throw new ForbiddenException('Not your address')
-    const session = await this.connection.startSession()
     try {
-      await session.withTransaction(async () => {
-        if (dto.isDefault === true) {
-          await this.addressModel
-            .updateMany(
-              { user: userId, _id: { $ne: id } },
-              { $set: { isDefault: false } },
-            )
-            .session(session)
-            .exec()
-        }
+      if (dto.isDefault === true) {
+        await this.addressModel
+          .updateMany(
+            { user: userId, _id: { $ne: id } },
+            { $set: { isDefault: false } },
+          )
+          .exec()
+      }
 
-        Object.assign(doc, dto)
-        await doc.save({ session })
-      })
+      Object.assign(doc, dto)
+      await doc.save()
       return { ...doc.toObject(), id: doc._id.toString() }
     } catch (error: any) {
       if (error?.code === 11000) {
         throw new BadRequestException('Only one default address is allowed')
       }
       throw error
-    } finally {
-      await session.endSession()
     }
   }
 
