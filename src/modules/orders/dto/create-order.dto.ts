@@ -18,6 +18,11 @@ class OrderItemConfigurationDto {
   @IsString()
   color?: string
 
+  /** Used server-side for resolvePricePerGram; client may send a quote hint in pricing/totalPrice (ignored). */
+  @IsOptional()
+  @IsString()
+  filamentVariantId?: string
+
   @IsString()
   layerHeight: string
 
@@ -40,6 +45,12 @@ class OrderItemStatisticsDto {
   @IsNumber()
   @Min(0)
   filamentWeight?: number
+}
+
+class OrderItemPricingDto {
+  @IsNumber()
+  @Min(0)
+  pricePerGram: number
 }
 
 class OrderItemDto {
@@ -67,6 +78,17 @@ class OrderItemDto {
   @ValidateNested()
   @Type(() => OrderItemStatisticsDto)
   statistics?: OrderItemStatisticsDto
+
+  /** Client quote; server replaces with trusted pricing in OrdersService.create */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrderItemPricingDto)
+  pricing?: OrderItemPricingDto
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number
 }
 
 class OrderShippingDto {
@@ -114,6 +136,40 @@ class OrderShippingDto {
   @IsNumber()
   @Min(0)
   shippingCost?: number
+
+  /** UI hint; not used for server-side totals */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalWeight?: number
+}
+
+/** Client-computed summary; server ignores and uses buildTrustedOrderPricing */
+class CreateOrderSummaryDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  subtotal?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  shippingCost?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalAmount?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalWeight?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrintTime?: number
 }
 
 export class CreateOrderDto {
@@ -121,6 +177,11 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[]
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateOrderSummaryDto)
+  summary?: CreateOrderSummaryDto
 
   @ValidateNested()
   @Type(() => OrderShippingDto)

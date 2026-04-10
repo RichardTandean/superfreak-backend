@@ -11,6 +11,10 @@ import { CreateOrderDto } from './dto/create-order.dto'
 import { UpdateOrderDto } from './dto/update-order.dto'
 import { InvoiceService } from './invoice.service'
 import { PrintingService } from '../printing/printing.service'
+import {
+  OrderChatReadService,
+  orderOwnerUserId,
+} from '../order-messages/order-chat-read.service'
 
 const CANCELABLE_STATUSES = ['unpaid', 'in-review', 'needs-discussion']
 
@@ -66,6 +70,7 @@ export class OrdersService {
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     private readonly printing: PrintingService,
     private readonly invoiceService: InvoiceService,
+    private readonly orderChatRead: OrderChatReadService,
   ) {}
 
   private async buildTrustedOrderPricing(normalizedItems: Record<string, unknown>[], shipping: Record<string, unknown>) {
@@ -155,20 +160,35 @@ export class OrdersService {
 
   async list(userId: string, isAdmin: boolean) {
     const filter = isAdmin ? {} : { user: userId }
-    const docs = await this.orderModel
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean()
-      .exec()
-    return docs.map((d: any) => ({ ...d, id: d._id.toString() }))
+    let q = this.orderModel.find(filter).sort({ createdAt: -1 }).limit(100)
+    if (isAdmin) {
+      q = q.populate('user', 'email name')
+    }
+    const docs = await q.lean().exec()
+    const rows = docs.map((d: any) => ({ ...d, id: d._id.toString() }))
+    return this.orderChatRead.enrichOrdersWithDiscussionUnread(rows, userId, isAdmin)
   }
 
   async findOne(id: string, userId: string, isAdmin: boolean): Promise<Record<string, unknown>> {
-    const doc = await this.orderModel.findById(id).lean().exec()
+    let q = this.orderModel.findById(id)
+    if (isAdmin) {
+      q = q.populate('user', 'email name')
+    }
+    const doc = await q.lean().exec()
     if (!doc) throw new NotFoundException('Order not found')
     if (!isAdmin && String(doc.user) !== userId) throw new ForbiddenException('Not your order')
-    return { ...doc, id: (doc as any)._id.toString() } as Record<string, unknown>
+    const base = { ...doc, id: (doc as any)._id.toString() } as Record<string, unknown>
+    if (doc.status === 'needs-discussion') {
+      base.discussionUnreadCount = await this.orderChatRead.getUnreadCount(
+        id,
+        userId,
+        isAdmin,
+        orderOwnerUserId(doc.user),
+      )
+    } else {
+      base.discussionUnreadCount = 0
+    }
+    return base
   }
 
   async create(userId: string, dto: CreateOrderDto) {

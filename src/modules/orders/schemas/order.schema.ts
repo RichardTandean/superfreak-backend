@@ -24,6 +24,7 @@ const StatusHistoryItemSchema = {
 const OrderItemConfigurationSchema = {
   material: { type: String, required: true },
   color: { type: String, required: false },
+  filamentVariantId: { type: String, required: false },
   layerHeight: { type: String, required: true },
   infill: { type: String, required: false },
   wallCount: { type: String, required: false },
@@ -72,6 +73,7 @@ const ShippingSchema = {
   service: { type: String, required: true },
   estimatedDelivery: { type: String, required: false },
   shippingCost: { type: Number, required: true, min: 0, default: 0 },
+  totalWeight: { type: Number, required: false },
 }
 
 const PaymentInfoSchema = {

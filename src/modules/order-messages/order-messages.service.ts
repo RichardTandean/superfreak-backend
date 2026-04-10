@@ -1,30 +1,17 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Inject } from '@nestjs/common'
 import { Model } from 'mongoose'
-import Redis from 'ioredis'
-import { REDIS_CLIENT } from '../../config/redis.module'
 import { Order, OrderDocument } from '../orders/schemas/order.schema'
 import { OrderMessage, OrderMessageDocument } from './schemas/order-message.schema'
 import { CreateOrderMessageDto } from './dto/create-message.dto'
-
-const ORDER_MESSAGES_CHANNEL_PREFIX = 'order-messages:'
-
-function getOrderMessagesChannel(orderId: string): string {
-  return `${ORDER_MESSAGES_CHANNEL_PREFIX}${orderId}`
-}
+import { OrderChatBroadcastService, OrderMessageSocketPayload } from './order-chat-broadcast.service'
 
 @Injectable()
 export class OrderMessagesService {
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel(OrderMessage.name) private readonly messageModel: Model<OrderMessageDocument>,
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly orderChatBroadcast: OrderChatBroadcastService,
   ) {}
 
   async checkOrderAccess(orderId: string, userId: string, isAdmin: boolean): Promise<OrderDocument | null> {
@@ -77,15 +64,6 @@ export class OrderMessagesService {
       body: dto.body.trim(),
     })
 
-    const payload = {
-      id: doc._id.toString(),
-      order: orderId,
-      author: userId,
-      body: doc.body,
-      createdAt: (doc as any).createdAt?.toISOString?.() ?? new Date().toISOString(),
-    }
-    await this.redis.publish(getOrderMessagesChannel(orderId), JSON.stringify(payload))
-
     const populated = await this.messageModel
       .findById(doc._id)
       .populate('author', 'name email')
@@ -93,10 +71,56 @@ export class OrderMessagesService {
       .exec()
 
     const out = populated ?? doc.toObject()
-    return { ...out, id: (out as any)._id.toString() } as Record<string, unknown>
+    const id = (out as { _id?: { toString: () => string } })._id?.toString() ?? doc._id.toString()
+    const socketPayload = this.toSocketPayload(out as Record<string, unknown>, orderId, id)
+    this.orderChatBroadcast.emitNewMessage(orderId, socketPayload)
+
+    const preview = doc.body.slice(0, 160)
+    if (isAdmin) {
+      this.orderChatBroadcast.emitOrderMessageToCustomer(String(order.user), {
+        orderId,
+        messageId: id,
+        preview,
+      })
+    } else {
+      this.orderChatBroadcast.emitOrderMessageToAdmins({
+        orderId,
+        messageId: id,
+        preview,
+      })
+    }
+
+    return { ...out, id } as Record<string, unknown>
   }
 
-  getChannelName(orderId: string): string {
-    return getOrderMessagesChannel(orderId)
+  private toSocketPayload(out: Record<string, unknown>, orderId: string, id: string): OrderMessageSocketPayload {
+    const rawAuthor = out.author as
+      | { _id?: { toString: () => string }; name?: string; email?: string }
+      | string
+      | undefined
+    let author: OrderMessageSocketPayload['author']
+    if (rawAuthor && typeof rawAuthor === 'object' && rawAuthor._id) {
+      author = {
+        id: rawAuthor._id.toString(),
+        name: rawAuthor.name,
+        email: rawAuthor.email,
+      }
+    } else {
+      author = { id: typeof rawAuthor === 'string' ? rawAuthor : String(rawAuthor ?? '') }
+    }
+    const created = out.createdAt
+    const createdAt =
+      created instanceof Date
+        ? created.toISOString()
+        : typeof created === 'string'
+          ? created
+          : new Date().toISOString()
+    return {
+      id,
+      order: orderId,
+      body: String(out.body ?? ''),
+      createdAt,
+      author,
+    }
   }
 }

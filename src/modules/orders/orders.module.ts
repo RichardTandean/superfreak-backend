@@ -6,12 +6,14 @@ import { OrdersController } from './orders.controller'
 import { InvoiceService } from './invoice.service'
 import { AuthModule } from '../auth/auth.module'
 import { PrintingModule } from '../printing/printing.module'
+import { OrderMessagesModule } from '../order-messages/order-messages.module'
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
     AuthModule,
     PrintingModule,
+    OrderMessagesModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, InvoiceService],
